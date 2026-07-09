@@ -67,7 +67,7 @@ class ReminderModal(discord.ui.Modal,title='Event Message'):
         client = get_client()
         announcementid = actions.log_reminder(client,config.SHEET_ID,self.channel,user_message,self.date,self.pingedusers, self.daysinadvance)
         await interaction.followup.send_message(f"Scheduled announcement with id {announcementid}.", ephemeral=True)
-@bot.tree.command(name = "schedule_board_reminder", description="Set a reminder, the reminder will ping whoever's included",guild=GUILD_ID)
+@bot.tree.command(name = "schedule_request", description="Set a reminder, the reminder will ping whoever's included",guild=GUILD_ID)
 @app_commands.describe(
     date="MM/DD"
 )
@@ -75,7 +75,7 @@ class ReminderModal(discord.ui.Modal,title='Event Message'):
 async def schedule_board_reminder(interaction:discord.Interaction,pinged_users: str,date: str, channel: str,days_in_advance: int = 0):
     #client = get_client()
     await interaction.response.send_modal(ReminderModal(date,channel, pinged_users,days_in_advance))
-@bot.tree.command(name = "cancel_event_reminder",description="Cancel an event that has been scheduled.",guild=GUILD_ID)
+@bot.tree.command(name = "cancel_request",description="Cancel an event that has been scheduled.",guild=GUILD_ID)
 @app_commands.checks.has_role(config.OFFICER_ROLE_ID)
 async def cancel_board_reminder(interaction:discord.Interaction,id: int):
     client = get_client()
