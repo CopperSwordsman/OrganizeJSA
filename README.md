@@ -53,5 +53,15 @@ Made to add a request system to help people keep track of what they need to do
    ```bash
    python bot.py
    ```
-   
-   
+
+## Project Structure
+```Organize_JSA/
+├── bot.py                # Main Discord bot: commands, reminder loops
+├── config.py             # Configuration and environment variables
+├── requirements.txt      # Python dependencies
+├── credentials.json      # Google Cloud service account (not in repo)
+├── .env                  # Environment variables (not in repo)
+├── sheets/
+│   ├── client.py         # Google Sheets authentication (get_client)
+│   └── actions.py        # Sheet operations (see below)
+```
