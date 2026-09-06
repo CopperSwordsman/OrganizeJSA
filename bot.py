@@ -99,12 +99,12 @@ async def check_reminders(interaction:discord.Interaction):
     reminderString = reminderString
     my_embed = discord.Embed(title="Reminders",description = reminderString)
     await interaction.followup.send(ephemeral=True, embed=my_embed)
-@bot.command(name="sync")
-async def sync(ctx):
+#@bot.command(name="sync")
+#async def sync(ctx):
     # Optional: restrict it to just you so random people can't trigger it
-    if ctx.author.id == 347099881858400257: # Or remove this line entirely for testing
-        synced = await bot.tree.sync(guild=GUILD_ID)
-        await ctx.send(f"Successfully synced {len(synced)} commands to this guild!")
-    else:
-        await ctx.send("You don't have permission to use this.")
+#    if ctx.author.id == 347099881858400257: # Or remove this line entirely for testing
+#        synced = await bot.tree.sync(guild=GUILD_ID)
+#        await ctx.send(f"Successfully synced {len(synced)} commands to this guild!")
+#    else:
+#        await ctx.send("You don't have permission to use this.")
 bot.run(config.DISCORD_TOKEN)
