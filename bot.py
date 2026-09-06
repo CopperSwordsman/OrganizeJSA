@@ -73,7 +73,7 @@ class ReminderModal(discord.ui.Modal,title='Request Message'):
 
 
         await interaction.followup.send(f"Scheduled announcement with id {announcementid}.", ephemeral=True)
-@bot.tree.command(name = "schedule_board_reminder", description="Set a reminder, the reminder will ping whoever's included",guild=GUILD_ID)
+@bot.tree.command(name = "schedule_reminder", description="Set a reminder, the reminder will dm whoever's included",guild=GUILD_ID)
 @app_commands.describe(
     date="MM/DD"
 )
@@ -81,13 +81,13 @@ class ReminderModal(discord.ui.Modal,title='Request Message'):
 async def schedule_board_reminder(interaction:discord.Interaction,pinged_users: str,date: str):
     #client = get_client()
     await interaction.response.send_modal(ReminderModal(date, pinged_users, interaction.user))
-@bot.tree.command(name = "cancel_board_reminder",description="Cancel an event that has been scheduled.",guild=GUILD_ID)
+@bot.tree.command(name = "cancel_reminder",description="Cancel an event that has been scheduled.",guild=GUILD_ID)
 @app_commands.checks.has_role(config.OFFICER_ROLE_ID)
 async def cancel_board_reminder(interaction:discord.Interaction,id: int):
     client = get_client()
     numcancelled = actions.cancel_reminder_by_id(client,config.SHEET_ID,id)
     await interaction.response.send_message(f"{numcancelled} events were cancelled.")
-@bot.tree.command(name = "check_reminders", description="Check your own pending reminders.", guild = GUILD_ID)
+@bot.tree.command(name = "reminders", description="Check your own pending reminders.", guild = GUILD_ID)
 #@app_commands.checks.has_role(config.OFFICER_ROLE_ID)
 async def check_reminders(interaction:discord.Interaction):
     #here we mainly want to use the bot to check every reminder that has the user's id here
@@ -99,5 +99,12 @@ async def check_reminders(interaction:discord.Interaction):
     reminderString = reminderString
     my_embed = discord.Embed(title="Reminders",description = reminderString)
     await interaction.followup.send(ephemeral=True, embed=my_embed)
-
+@bot.command(name="sync")
+async def sync(ctx):
+    # Optional: restrict it to just you so random people can't trigger it
+    if ctx.author.id == 347099881858400257: # Or remove this line entirely for testing
+        synced = await bot.tree.sync(guild=GUILD_ID)
+        await ctx.send(f"Successfully synced {len(synced)} commands to this guild!")
+    else:
+        await ctx.send("You don't have permission to use this.")
 bot.run(config.DISCORD_TOKEN)
