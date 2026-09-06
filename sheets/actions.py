@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+import re
+import discord
 import config
 
 # --- HEADERS ---
-REMINDER_HEADERS = ['Reminder_ID','Reminder_Timestamp','Channel_ID','Message','Days_In_Advance']
+REMINDER_HEADERS = ['Reminder_ID','Pinged_Users','Reminder_Timestamp','Requester','Message',"Days_In_Advance","Status"]
 
 #HELPERS
 def parseMonth(isostring):
@@ -12,7 +14,7 @@ def parseMonth(isostring):
     return formatted_date
 
 #REMINDER STUFF
-def log_reminder(client, master_sheet_id, channel, message, time, people_to_ping,days_in_advance):
+def log_reminder(client, master_sheet_id, requester,message, time, people_to_ping):
     #this is just for adding 1 to the year in case we're doing something between december and january I guess
     now = datetime.now()
     now = now.replace(hour=0,minute=0,second=0,microsecond=0)
@@ -31,9 +33,9 @@ def log_reminder(client, master_sheet_id, channel, message, time, people_to_ping
         last_id = int(last_id)
     except ValueError:
         last_id=0
-    event_reminders.append_row([last_id+1,people_to_ping,isotime,channel,message,days_in_advance,"Scheduled"])
+    event_reminders.append_row([last_id+1,people_to_ping,isotime,requester,message,1,"Scheduled"])
     return last_id+1
-def get_reminders(client,master_sheet_id,expectedTime):
+async def get_reminders(client,bot_instance,master_sheet_id,expectedTime):
     #Reminder Statuses
     #Scheduled: Available to be reminded on when needed (usually day of)
     #Refresh: These are for when reminders need to be sent multiple times, it's already been sent today so we pend it to tomorrow
@@ -43,6 +45,7 @@ def get_reminders(client,master_sheet_id,expectedTime):
     sheet = client.open_by_key(master_sheet_id)
     board_reminders = sheet.worksheet("Board_Reminders")
     records = board_reminders.get_all_records(expected_headers=REMINDER_HEADERS)
+    guild = bot_instance.get_guild(config.GUILD_ID)
     for index, row in enumerate(records):
         status=str(row.get("Status"))
         rowStartTime = str(row.get("Reminder_Timestamp"))
@@ -50,31 +53,48 @@ def get_reminders(client,master_sheet_id,expectedTime):
         #First is to set all to expired just in case, I don't think this actually matters unless it was cancelled but consistency is nice
         if(expectedTime>rowStartTime):
             board_reminders.update_cell(index+2,7,'Expired')
+
         #If it's not scheduled it doesn't matter because we don't need to read it in that case
         if(status != "Scheduled"):
             continue
 
         daysInAdvance = int(row.get("Days_In_Advance"))
         rowID = str(row.get("Reminder_ID"))
+        raw_message = str(row.get("Message"))
+        pings_string = str(row.get("Pinged_Users"))
+        user_ids = set(int(uid) for uid in re.findall(r"<@(\d+)>", pings_string))
+        role_ids = re.findall(r"<@&(\d+)>", pings_string)
+        if guild:
+            for role_id in role_ids:
+                role = guild.get_role(int(role_id))
+                if role:
+                    user_ids.update(int(member.id) for member in role.members)
         #In most cases we just need this if statement, if daysinadvance is anything but 1 though that changes
         if(expectedTime==rowStartTime):
-            message = "# Time Until Deadline: 0 days\n" + "### " + str(row.get("Message") + "\n" + "ID: " + rowID)
-            channel = str(row.get("Channel_ID"))
-            pings = str(row.get("Pinged_Users"))
             board_reminders.update_cell(index+2,7,'Expired')
-            return [message,channel,pings]
+            await send_dm_reminders(bot_instance, user_ids, 0, raw_message, rowID)
         #for higher days in advance we have to actually use refresh
         elif expectedTime < rowStartTime <= expectedTime + timedelta(days=daysInAdvance):
             #this is the case where we use days in advance, we don't want to change the status
             dayDifference = (rowStartTime-expectedTime).days
-            message = f"# Time Until Deadline: {dayDifference} days\n" + "### " + str(row.get("Message") + "\n\n" + "ID: " + rowID)
-            channel = str(row.get("Channel_ID"))
-            pings = str(row.get("Pinged_Users"))
+            await send_dm_reminders(bot_instance, user_ids, 1, raw_message, rowID)
             board_reminders.update_cell(index+2,7,'Refresh')
-            return [message,channel,pings]
 
     return None
+async def send_dm_reminders(bot, user_ids, days_left, raw_message, row_id):
+    """Helper function to format and send DMs to a set of user IDs."""
+    final_message = f"# Time Until Deadline: {days_left} days\n### {raw_message}\n\nID: {row_id}"
+    my_embed = discord.Embed(title="Board Reminder", description=final_message)
 
+    for uid in user_ids:
+        try:
+            user = bot.get_user(uid) or await bot.fetch_user(uid)
+            if user:
+                await user.send(embed=my_embed)
+        except (discord.Forbidden, discord.NotFound):
+            print(f"Failed to DM user {uid}: DMs disabled or blocked bot.")
+        except discord.HTTPException as e:
+            print(f"Failed to DM user {uid}: {e}")
 
 def get_own_reminders(client,  master_sheet_id, userid, ismm):
     #this goes through discord ids to check if the id string is somewhere in the pinged user section, impossible for this to messup because of how discord is formatted
